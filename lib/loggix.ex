@@ -1,14 +1,27 @@
 defmodule Loggix do
 
   @moduledoc"""
+  Loggix
+  ----
+  A custom implementation for Elixir Logger moduale.
+  - Using GenEvent for handle log events.
+
   """
 
-  use GenServer
+  use GenEvent
+
+  #####################
+  # type annotations. #
+  #####################
+  @type path  :: String.t
+  @type level :: Logger.level
+  @type metadata :: [atom]
+  @type format :: String.t
 
   @log_default_format "$time $metadata [$level] $message\n"
 
   defmodule State do
-    defstruct [:name, :path, :io_device, :inode, :format, :level]
+    defstruct [:name, :path, :io_device, :inode, :format, :level, :metadata]
   end
 
   def init({__MODULE__, name}) do
@@ -23,11 +36,16 @@ defmodule Loggix do
     {:ok, {:ok, path}, state}
   end
 
-  def handle_call({level, _gl, {Logger, message, timestamps, metadata}}, state) do
-    write_log(level, message, timestamps, metadata, state)
+  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level} = state) do
+    case Logger.compare_levels(level, min_level) do
+      :lt ->
+        write_log(level, message, timestamps, metadata, state)
+      _ ->
+        {:ok, state}
+    end
   end
 
-  def handle_call(:flush, state) do
+  def handle_event(:flush, state) do
     {:ok, state}
   end
 
@@ -43,10 +61,15 @@ defmodule Loggix do
         {:ok, state}
     end
   end
-  defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device} = state) when is_binary(path) do
-    output = format(level, message, timestamps, metadata, state)
-    IO.write(io_device, output)
-    {:ok, state}
+  defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
+    if inode == nil do
+      write_log(level, message, timestamps, metadata, %State{state | io_device: nil})
+      File.close(io_device)
+    else
+      output = format(level, message, timestamps, metadata, state)
+      IO.write(io_device, output)
+      {:ok, state}
+    end
   end
 
   defp open_log(path) do
@@ -63,6 +86,7 @@ defmodule Loggix do
     end
   end
 
+  @spec get_inode(String.t) :: File.Stat.t | nil
   defp get_inode(path) do
     case File.stat(path) do
       {:ok, %File.Stat{inode: inode}} -> inode
@@ -70,6 +94,7 @@ defmodule Loggix do
     end
   end
 
+  @spec initialize(String.t, map()) :: %State{}
   defp initialize(name, opts) do
     initialize(name, opts, %State{})
   end
@@ -78,15 +103,35 @@ defmodule Loggix do
     opts = Map.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
-    level           = Map.get(opts, :level)
-    format_opts     = Map.get(opts, :format, @log_default_format)
-    format          = Logger.Formatter.compile(format_opts)
-    path            = Map.get(opts, :path)
+    level = Map.get(opts, :level)
+    metadata = Map.get(opts, :metadata, [])
+    format_opts = Map.get(opts, :format, @log_default_format)
+    format  = Logger.Formatter.compile(format_opts)
+    path = Map.get(opts, :path)
 
-    %State{state | name: name, path: path, format: format, level: level}
+    %State{state | name: name, path: path, format: format, level: level, metadata: metadata}
   end
 
-  defp format(level, message, timestamps, metadata, %{format: format}) do
-    Logger.Formatter.format(format, level, message, timestamps, metadata)
+  defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys}) do
+    Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
+  end
+
+  #############
+  # Utilities #
+  #############
+  @spec reduce_metadata([atom], [atom]) :: [{atom, atom}]
+  defp reduce_metadata(metadata, keys) do
+    reduce_metadata_ref(metadata, [], keys)
+  end
+  defp reduce_metadata_ref(_metadata, ret, []) do
+    ret
+  end
+  defp reduce_metadata_ref(metadata, ret, [key | keys]) do
+    case Map.fetch(metadata, key) do
+      {:ok, value} ->
+        reduce_metadata_ref(metadata, [{key, value} | ret], keys)
+      :error ->
+        reduce_metadata_ref(metadata, ret, keys)
+    end
   end
 end
