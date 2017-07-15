@@ -94,7 +94,7 @@ defmodule Loggix do
     end
   end
 
-  @spec initialize(String.t, map()) :: %State{}
+  @spec initialize(atom, map()) :: %State{}
   defp initialize(name, opts) do
     initialize(name, opts, %State{})
   end

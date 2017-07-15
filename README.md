@@ -1,6 +1,10 @@
 # Loggix
 
-**TODO: Add description**
+A Log Implimentation Tool with Logger.
+
+## Concept
+
+- Use `GenEvent`
 
 ## Installation
 
@@ -9,7 +13,7 @@ by adding `loggix` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:loggix, "~> 0.1.0"}]
+  [{:loggix, "~> 0.0.1"}]
 end
 ```
 
