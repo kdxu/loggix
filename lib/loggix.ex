@@ -49,7 +49,7 @@ defmodule Loggix do
     {:ok, state}
   end
 
-  defp write_log(_l, _message, _timestamps, _metadata, %State{path: nil} = state) do
+  defp write_log(_level, _message, _timestamps, _metadata, %State{path: nil} = state) do
     {:ok, state}
   end
   defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: nil} = state) when is_binary(path) do
