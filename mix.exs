@@ -12,13 +12,14 @@ defmodule Loggix.Mixfile do
   end
 
   defp description do
-    "A Logger implimentation for Elixir"
+    "A Logger backend implimentation for Elixir"
   end
 
   defp package do
     [
       maintainers: ["kdxu"],
-      licenses: ["MIT"]
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/kdxu/loggix"}
     ]
   end
 

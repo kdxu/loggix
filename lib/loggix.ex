@@ -17,15 +17,21 @@ defmodule Loggix do
   @type level :: Logger.level
   @type metadata :: [atom]
   @type format :: String.t
+  @type file :: :file.io_device
+  @type inode :: File.Stat.t
 
   @log_default_format "$time $metadata [$level] $message\n"
 
+  @doc"""
+  # Loggix.State
+    the main struct of GenEvent.
+  """
   defmodule State do
-    defstruct [:name, :path, :io_device, :inode, :format, :level, :metadata]
+    defstruct [name: nil, path: nil, io_device: nil, inode: nil, format: nil, level: nil, metadata: nil]
   end
 
   def init({__MODULE__, name}) do
-    {:ok, initialize(name, %{})}
+    {:ok, initialize(name, [])}
   end
 
   def handle_call({:initialize, opts}, %State{name: name} = state) do
@@ -36,12 +42,11 @@ defmodule Loggix do
     {:ok, {:ok, path}, state}
   end
 
-  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level} = state) do
-    case Logger.compare_levels(level, min_level) do
-      :lt ->
-        write_log(level, message, timestamps, metadata, state)
-      _ ->
-        {:ok, state}
+  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %State{level: min_level} = state) do
+    if min_level == nil  || Logger.compare_levels(level, min_level) != :lt do
+      write_log(level, message, timestamps, metadata, state)
+    else
+      {:ok, state}
     end
   end
 
@@ -99,7 +104,8 @@ defmodule Loggix do
     initialize(name, opts, %State{})
   end
   defp initialize(name, opts, state) do
-    env = Application.get_env(:logger, name, %{})
+    env = Application.get_env(:logger, name, [])
+          |> Enum.into(%{})
     opts = Map.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
