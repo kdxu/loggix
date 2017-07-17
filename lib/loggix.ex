@@ -31,7 +31,7 @@ defmodule Loggix do
   end
 
   def init({__MODULE__, name}) do
-    {:ok, initialize(name, [])}
+    {:ok, initialize(name, %{})}
   end
 
   def handle_call({:initialize, opts}, %State{name: name} = state) do
