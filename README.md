@@ -35,3 +35,9 @@ config :logger,
 * level : Logger.Level - the logging level for backend
 * format : String - the log format
 * metadata : String - the metadata to include
+
+## TODO
+
+- JSON, XML Encode feature
+- metadata filter
+- check if available inode
