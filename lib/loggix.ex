@@ -99,7 +99,7 @@ defmodule Loggix do
     initialize(name, opts, %State{})
   end
   defp initialize(name, opts, state) do
-    env = Application.get_env(:logger, name, [])
+    env = Application.get_env(:logger, name, %{})
     opts = Map.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
