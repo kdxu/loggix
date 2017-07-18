@@ -3,7 +3,7 @@ defmodule Loggix.Mixfile do
 
   def project do
     [app: :loggix,
-     version: "0.0.3",
+     version: "0.0.4",
      elixir: "~> 1.4",
      dialyzer: [ignore_warnings: ".dialyzerignore"],
      package: package(),
