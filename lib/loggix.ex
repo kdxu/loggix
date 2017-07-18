@@ -24,7 +24,7 @@ defmodule Loggix do
   if json_encoder option is not existed in config/config.exs, formatting style will follow 'format' configration.
   """
 
-  use GenEvent
+  @behaviour :gen_event
 
   #####################
   # type annotations. #
@@ -76,7 +76,7 @@ defmodule Loggix do
   defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: nil} = state) when is_binary(path) do
     case open_log(path) do
       {:ok, io_device, inode} ->
-        {:ok, state} =  write_log(level, message, timestamps, metadata, %State{state | io_device: io_device, inode: inode})
+        write_log(level, message, timestamps, metadata, %State{state | io_device: io_device, inode: inode})
         {:ok, state}
       _ ->
         {:ok, state}
@@ -125,7 +125,7 @@ defmodule Loggix do
     opts = Map.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
-    level = Map.get(opts, :level)
+    level = Map.get(opts, :level, :info)
     metadata = Map.get(opts, :metadata, [])
     format = Map.get(opts, :format, @log_default_format)
              |> Logger.Formatter.compile()
