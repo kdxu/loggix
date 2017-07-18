@@ -47,7 +47,7 @@ defmodule Loggix do
   end
 
   def init({__MODULE__, name}) do
-    {:ok, initialize(name, %{})}
+    {:ok, configure(name, [])}
   end
 
   def handle_call({:configure, opts}, %State{name: name} = state) do
@@ -85,7 +85,7 @@ defmodule Loggix do
   defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
     if inode == nil || inode != get_inode(inode) do
       File.close(io_device)
-      write_log(level, message, timestamps, metadata, %State{state | io_device: nil, inode: nila})
+      write_log(level, message, timestamps, metadata, %State{state | io_device: nil, inode: nil})
     else
       output = format(level, message, timestamps, metadata, state)
       IO.write(io_device, output)
@@ -117,20 +117,19 @@ defmodule Loggix do
 
   @spec configure(atom, map()) :: %State{}
   defp configure(name, opts) do
-    initialize(name, opts, %State{})
+    configure(name, opts, %State{})
   end
   defp configure(name, opts, state) do
     env = Application.get_env(:logger, name, [])
-          |> Enum.into(%{})
-    opts = Map.merge(env, opts)
+    opts = Keyword.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
-    level = Map.get(opts, :level, :info)
-    metadata = Map.get(opts, :metadata, [])
-    format = Map.get(opts, :format, @log_default_format)
+    level = Keyword.get(opts, :level, :info)
+    metadata = Keyword.get(opts, :metadata, [])
+    format = Keyword.get(opts, :format, @log_default_format)
              |> Logger.Formatter.compile()
-    path = Map.get(opts, :path)
-    json_encoder = Map.get(opts, :json_encoder, nil)
+    path = Keyword.get(opts, :path)
+    json_encoder = Keyword.get(opts, :json_encoder, nil)
 
     %State{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder}
   end

@@ -1,4 +1,5 @@
 defmodule LoggixTest do
+  require Logger
   use ExUnit.Case, async: false
 
   @backend {Loggix, :test}
