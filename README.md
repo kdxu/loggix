@@ -23,11 +23,15 @@ be found at [https://hexdocs.pm/loggix](https://hexdocs.pm/loggix).
 
 ## Configration
 
-For telling logger to load a loggix.
+For telling logger to configiration of `loggix`.
 
 ```elixir
 config :logger,
   backends: [{Loggix, :error_log}]
+config :logger, :error_log,
+  path: "var/log/error_log"
+  level: :error
+  json_encoder: Poison
 ```
 
 
