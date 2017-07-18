@@ -24,7 +24,7 @@ defmodule Loggix.Mixfile do
   end
 
   def application do
-    [extra_applications: []]
+    [applications: [:logger]]
   end
 
   defp deps do

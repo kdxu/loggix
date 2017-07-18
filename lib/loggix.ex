@@ -38,19 +38,11 @@ defmodule Loggix do
 
   @log_default_format "$time $metadata [$level] $message\n"
 
-  @doc"""
-  # Loggix.State
-    the main struct of GenEvent.
-  """
-  defmodule State do
-    defstruct [name: nil, path: nil, io_device: nil, inode: nil, format: nil, level: nil, metadata: nil, json_encoder: nil]
-  end
-
   def init({__MODULE__, name}) do
     {:ok, configure(name, [])}
   end
 
-  def handle_call({:configure, opts}, %State{name: name} = state) do
+  def handle_call({:configure, opts}, %{name: name} = state) do
     {:ok, :ok, configure(name, opts, state)}
   end
 
@@ -58,9 +50,9 @@ defmodule Loggix do
     {:ok, {:ok, path}, state}
   end
 
-  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %State{level: min_level} = state) do
-    if min_level == nil  || Logger.compare_levels(level, min_level) != :lt do
-      write_log(level, message, timestamps, metadata, state)
+  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level} = state) do
+    if is_nil(min_level == nil) or Logger.compare_levels(level, min_level) != :lt do
+      log_event(level, message, timestamps, metadata, state)
     else
       {:ok, state}
     end
@@ -70,26 +62,26 @@ defmodule Loggix do
     {:ok, state}
   end
 
-  defp write_log(_level, _message, _timestamps, _metadata, %State{path: nil} = state) do
+  defp log_event(_level, _message, _timestamps, _metadata, %{path: nil} = state) do
     {:ok, state}
   end
-  defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: nil} = state) when is_binary(path) do
+  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: nil} = state) when is_binary(path) do
     case open_log(path) do
       {:ok, io_device, inode} ->
-        write_log(level, message, timestamps, metadata, %State{state | io_device: io_device, inode: inode})
+        log_event(level, message, timestamps, metadata, %{state | io_device: io_device, inode: inode})
         {:ok, state}
       _ ->
         {:ok, state}
     end
   end
-  defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
-    if inode == nil || inode != get_inode(inode) do
-      File.close(io_device)
-      write_log(level, message, timestamps, metadata, %State{state | io_device: nil, inode: nil})
-    else
+  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
+    if !is_nil(inode) and inode == get_inode(path) do
       output = format(level, message, timestamps, metadata, state)
       IO.write(io_device, output)
       {:ok, state}
+    else
+      File.close(io_device)
+      log_event(level, message, timestamps, metadata, %{state | io_device: nil, inode: nil})
     end
   end
 
@@ -115,9 +107,10 @@ defmodule Loggix do
     end
   end
 
-  @spec configure(atom, map()) :: %State{}
+  @spec configure(atom, map()) :: %{}
   defp configure(name, opts) do
-    configure(name, opts, %State{})
+    state = %{name: nil, path: nil, io_device: nil, inode: nil, level: nil, format: nil, metadata: nil, json_encoder: nil}
+    configure(name, opts, state)
   end
   defp configure(name, opts, state) do
     env = Application.get_env(:logger, name, [])
@@ -131,15 +124,21 @@ defmodule Loggix do
     path = Keyword.get(opts, :path)
     json_encoder = Keyword.get(opts, :json_encoder, nil)
 
-    %State{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder}
+    %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder}
   end
 
 
-  defp format(level, message, timestamps, metadata, %State{format: format, metadata: metadata_keys, json_encoder: nil}) do
-    Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
+    defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys, json_encoder: json_encoder} = state) do
+      if(is_nil(json_encoder)) do
+        Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
+      else
+        format_json(level, message, timestamps, metadata, state)
+      end
   end
-  defp format(level, message, timestamps, metadata, %State{metadata: metadata_keys, json_encoder: json_encoder}) do
-    json_encoder.encode!(Map.merge(%{level: level, message: IO.iodata_to_binary(message), time: format_time(timestamps)}, reduce_metadata(metadata, metadata_keys))) <> "\n"
+  defp format_json(level, message, timestamps, metadata, %{metadata: metadata_keys, json_encoder: json_encoder}) do
+    metadata_map = reduce_metadata(metadata, metadata_keys)
+                   |> Enum.into(%{})
+    json_encoder.encode!(Map.merge(%{level: level, message: IO.iodata_to_binary(message), time: format_time(timestamps)}, metadata_map)) <> "\n"
   end
 
   defp format_time({date, time}) do
