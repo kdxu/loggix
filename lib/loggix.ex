@@ -107,7 +107,7 @@ defmodule Loggix do
     end
   end
 
-  @spec get_inode(String.t) :: File.Stat.t | nil
+  @spec get_inode(String.t) :: term | nil
   defp get_inode(path) do
     case File.stat(path) do
       {:ok, %File.Stat{inode: inode}} -> inode
@@ -140,8 +140,7 @@ defmodule Loggix do
     Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
   end
   defp format(level, message, timestamps, metadata, %State{metadata: metadata_keys, json_encoder: json_encoder}) do
-    encoded_json = json_encoder.encode!(Map.merge(%{level: level, message: IO.iodata_to_binary(message), time: format_time(timestamps)}, reduce_metadata(metadata, metadata_keys)))
-    encoded_json <> "\n"
+    json_encoder.encode!(Map.merge(%{level: level, message: IO.iodata_to_binary(message), time: format_time(timestamps)}, reduce_metadata(metadata, metadata_keys))) <> "\n"
   end
 
   defp format_time({date, time}) do
