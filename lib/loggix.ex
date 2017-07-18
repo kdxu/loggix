@@ -6,6 +6,22 @@ defmodule Loggix do
   A custom implementation for Elixir Logger moduale.
   - Using GenEvent for handle log events.
 
+  ## Format
+
+  Default formatting style is below:
+
+  ```
+  @log_default_format "$time $metadata [$level] $message\n"
+  ```
+
+  You can configure a custom formatting style `format : "..."` in config/config.exs.
+
+  ## JSON Encoding
+
+  if json_encoder will specified in configration. json_encoder.encode!/1 will executed.
+  Ex. json_encoder: Poison
+  Poison.encode!(%{level: "", message: "", time : ""})...
+  if json_encoder option is not existed in config/config.exs, formatting style will follow 'format' configration.
   """
 
   use GenEvent
@@ -27,7 +43,7 @@ defmodule Loggix do
     the main struct of GenEvent.
   """
   defmodule State do
-    defstruct [name: nil, path: nil, io_device: nil, inode: nil, format: nil, level: nil, metadata: nil]
+    defstruct [name: nil, path: nil, io_device: nil, inode: nil, format: nil, level: nil, metadata: nil, json_encoder: nil]
   end
 
   def init({__MODULE__, name}) do
@@ -67,7 +83,7 @@ defmodule Loggix do
     end
   end
   defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
-    if inode == nil do
+    if inode == nil || inode != get_inode(inode) do
       write_log(level, message, timestamps, metadata, %State{state | io_device: nil})
       File.close(io_device)
     else
@@ -111,15 +127,29 @@ defmodule Loggix do
 
     level = Map.get(opts, :level)
     metadata = Map.get(opts, :metadata, [])
-    format_opts = Map.get(opts, :format, @log_default_format)
-    format  = Logger.Formatter.compile(format_opts)
+    format = Map.get(opts, :format, @log_default_format)
+             |> Logger.Formatter.compile()
     path = Map.get(opts, :path)
+    json_encoder = Map.get(opts, :json_encoder, nil)
 
-    %State{state | name: name, path: path, format: format, level: level, metadata: metadata}
+    %State{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder}
   end
 
-  defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys}) do
+
+  defp format(level, message, timestamps, metadata, %State{format: format, metadata: metadata_keys, json_encoder: nil}) do
     Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
+  end
+  defp format(level, message, timestamps, metadata, %State{metadata: metadata_keys, json_encoder: json_encoder}) do
+    encoded_json = json_encoder.encode!(Map.merge(%{level: level, message: IO.iodata_to_binary(message), time: format_time(timestamps)}, reduce_metadata(metadata, metadata_keys)))
+    encoded_json <> "\n"
+  end
+
+  defp format_time({date, time}) do
+    fmt_date = Logger.Utils.format_date(date)
+              |> IO.iodata_to_binary()
+    fmt_time = Logger.Utils.format_time(time)
+              |> IO.iodata_to_binary()
+    "#{fmt_date} #{fmt_time}"
   end
 
   #############
