@@ -50,8 +50,8 @@ defmodule Loggix do
     {:ok, initialize(name, %{})}
   end
 
-  def handle_call({:initialize, opts}, %State{name: name} = state) do
-    {:ok, :ok, initialize(name, opts, state)}
+  def handle_call({:configure, opts}, %State{name: name} = state) do
+    {:ok, :ok, configure(name, opts, state)}
   end
 
   def handle_call(:path, %{path: path} = state) do
@@ -84,8 +84,8 @@ defmodule Loggix do
   end
   defp write_log(level, message, timestamps, metadata, %State{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
     if inode == nil || inode != get_inode(inode) do
-      write_log(level, message, timestamps, metadata, %State{state | io_device: nil})
       File.close(io_device)
+      write_log(level, message, timestamps, metadata, %State{state | io_device: nil, inode: nila})
     else
       output = format(level, message, timestamps, metadata, state)
       IO.write(io_device, output)
@@ -115,11 +115,11 @@ defmodule Loggix do
     end
   end
 
-  @spec initialize(atom, map()) :: %State{}
-  defp initialize(name, opts) do
+  @spec configure(atom, map()) :: %State{}
+  defp configure(name, opts) do
     initialize(name, opts, %State{})
   end
-  defp initialize(name, opts, state) do
+  defp configure(name, opts, state) do
     env = Application.get_env(:logger, name, [])
           |> Enum.into(%{})
     opts = Map.merge(env, opts)
