@@ -131,7 +131,7 @@ defmodule Loggix do
   end
 
 
-    defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys, json_encoder: json_encoder} = state) do
+  defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys, json_encoder: json_encoder} = state) do
       if(is_nil(json_encoder)) do
         Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
       else
@@ -181,10 +181,10 @@ defmodule Loggix do
     reduce_metadata_ref(metadata, [], keys)
   end
   defp reduce_metadata_ref(_metadata, ret, []) do
-    ret
+    Enum.reverse(ret)
   end
   defp reduce_metadata_ref(metadata, ret, [key | keys]) do
-    case Map.fetch(metadata, key) do
+    case Keyword.fetch(metadata, key) do
       {:ok, value} ->
         reduce_metadata_ref(metadata, [{key, value} | ret], keys)
       :error ->

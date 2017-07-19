@@ -20,25 +20,57 @@ defmodule LoggixTest do
     assert log() =~ "this is a test message"
   end
 
+  test "can log utf8 chars" do
+    Logger.debug("ß\uFFaa\u0222")
+    assert log() =~ "ßﾪȢ"
+  end
+
+  test "can configure metadata" do
+    config([format: "$metadata[$level] $message\n", metadata: [:user_id, :is_login]])
+
+    Logger.debug("hello")
+    assert log() =~ "hello"
+
+    Logger.metadata(user_id: "xxx-xxx-xxx-xxx")
+    Logger.metadata(is_login: true)
+    Logger.debug("hello")
+    assert log() =~ "user_id=xxx-xxx-xxx-xxx is_login=true [debug] hello"
+    config([metadata: nil])
+  end
   test "can configure format" do
-    config([path: @default_path, format: "$message [$level]\n"])
+    config([format: "$message [$level]\n"])
 
     Logger.debug("hello")
     assert log() =~ "hello [debug]"
   end
 
+  test "log file rotate" do
+    config([format: "$message\n"])
+    config([rotate: %{max_bytes: 4, keep: 4}])
+
+    Logger.debug "rotate1"
+    Logger.debug "rotate2"
+    Logger.debug "rotate3"
+
+
+    p = path()
+
+    assert File.read!("#{p}.2")  == "rotate1\n"
+    assert File.read!("#{p}.1")  == "rotate2\n"
+    assert File.read!(p)         == "rotate3\n"
+
+    config([rotate: nil])
+  end
   defp path() do
     {:ok, path} = :gen_event.call(Logger, @backend, :path)
     path
   end
 
   defp log() do
-    log = File.read!(path())
-    log
+    File.read!(path())
   end
 
   defp config(opts) do
-    :ok = Logger.configure_backend(@backend, opts)
-    :ok
+    Logger.configure_backend(@backend, opts)
   end
 end
