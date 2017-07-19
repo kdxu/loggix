@@ -62,6 +62,9 @@ defmodule Loggix do
     {:ok, state}
   end
 
+  ####################
+  # helper functions #
+  ####################
   defp log_event(_level, _message, _timestamps, _metadata, %{path: nil} = state) do
     {:ok, state}
   end
@@ -69,13 +72,12 @@ defmodule Loggix do
     case open_log(path) do
       {:ok, io_device, inode} ->
         log_event(level, message, timestamps, metadata, %{state | io_device: io_device, inode: inode})
-        {:ok, state}
       _ ->
         {:ok, state}
     end
   end
-  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
-    if !is_nil(inode) and inode == get_inode(path) do
+  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: io_device, inode: inode, rotate: rotate} = state) when is_binary(path) do
+    if !is_nil(inode) and inode == get_inode(path) and rotate(path, rotate) do
       output = format(level, message, timestamps, metadata, state)
       IO.write(io_device, output)
       {:ok, state}
@@ -149,9 +151,30 @@ defmodule Loggix do
     "#{fmt_date} #{fmt_time}"
   end
 
-  #############
-  # Utilities #
-  #############
+  defp rename_file(path, keep) do
+    File.rm("#{path}.#{keep}")
+    _ = Enum.map(keep-1..1, &(File.rename("#{path}.#{&1}", "#{path}.#{&1+1}")))
+    case File.rename(path, "#{path}.1") do
+      :ok -> false
+      _   -> true
+    end
+  end
+
+  # for log rotate.
+  defp rotate(path, %{max_bytes: max_bytes, keep: keep }) when is_integer(max_bytes) and is_integer(keep) and keep > 0 do
+    case File.stat(path) do
+      {:ok, %{size: size}} ->
+        if size >= max_bytes do
+        rename_file(path, keep)
+        else
+          true
+        end
+      _ ->
+        true
+    end
+  end
+  defp rotate(_path, _), do: true
+
   @spec reduce_metadata([atom], [atom]) :: [{atom, atom}]
   defp reduce_metadata(metadata, keys) do
     reduce_metadata_ref(metadata, [], keys)
