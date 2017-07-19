@@ -157,7 +157,7 @@ defmodule Loggix do
     _ = Enum.map(keep-1..1, &(File.rename("#{path}.#{&1}", "#{path}.#{&1+1}")))
     case File.rename(path, "#{path}.1") do
       :ok -> false
-      _   -> true
+      _ -> true
     end
   end
 
@@ -166,7 +166,7 @@ defmodule Loggix do
     case File.stat(path) do
       {:ok, %{size: size}} ->
         if size >= max_bytes do
-        rename_file(path, keep)
+          rename_file(path, keep)
         else
           true
         end
