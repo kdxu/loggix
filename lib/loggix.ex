@@ -111,7 +111,7 @@ defmodule Loggix do
 
   @spec configure(atom, map()) :: %{}
   defp configure(name, opts) do
-    state = %{name: nil, path: nil, io_device: nil, inode: nil, level: nil, format: nil, metadata: nil, json_encoder: nil}
+    state = %{name: nil, path: nil, io_device: nil, inode: nil, level: nil, format: nil, metadata: nil, json_encoder: nil, rotate: nil}
     configure(name, opts, state)
   end
   defp configure(name, opts, state) do
@@ -125,8 +125,9 @@ defmodule Loggix do
              |> Logger.Formatter.compile()
     path = Keyword.get(opts, :path)
     json_encoder = Keyword.get(opts, :json_encoder, nil)
+    rotate = Keyword.get(opts, :rotate)
 
-    %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder}
+    %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder, rotate: rotate}
   end
 
 
