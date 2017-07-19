@@ -119,13 +119,13 @@ defmodule Loggix do
     opts = Keyword.merge(env, opts)
     Application.put_env(:logger, name, opts)
 
-    level = Keyword.get(opts, :level, :info)
+    level = Keyword.get(opts, :level, :debug)
     metadata = Keyword.get(opts, :metadata, [])
     format = Keyword.get(opts, :format, @log_default_format)
              |> Logger.Formatter.compile()
-    path = Keyword.get(opts, :path)
+    path = Keyword.get(opts, :path, nil)
     json_encoder = Keyword.get(opts, :json_encoder, nil)
-    rotate = Keyword.get(opts, :rotate)
+    rotate = Keyword.get(opts, :rotate, nil)
 
     %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder, rotate: rotate}
   end
@@ -162,7 +162,7 @@ defmodule Loggix do
   end
 
   # for log rotate.
-  defp rotate(path, %{max_bytes: max_bytes, keep: keep }) when is_integer(max_bytes) and is_integer(keep) and keep > 0 do
+  defp rotate(path, %{max_bytes: max_bytes, keep: keep}) when is_integer(max_bytes) and is_integer(keep) and keep > 0 do
     case File.stat(path) do
       {:ok, %{size: size}} ->
         if size >= max_bytes do
@@ -174,7 +174,7 @@ defmodule Loggix do
         true
     end
   end
-  defp rotate(_path, _), do: true
+  defp rotate(_path, nil), do: true
 
   @spec reduce_metadata([atom], [atom]) :: [{atom, atom}]
   defp reduce_metadata(metadata, keys) do
