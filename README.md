@@ -1,5 +1,9 @@
 # Loggix
 
+[![hex.pm version](https://img.shields.io/hexpm/v/loggix.svg)](https://hex.pm/packages/loggix)
+[![hex.pm](https://img.shields.io/hexpm/l/loggix.svg)](https://github.com/kdxu/loggix/blob/master/LICENSE)
+
+
 A Log Implimentation Tool with Logger.
 
 ## Concept
@@ -13,7 +17,7 @@ by adding `loggix` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:loggix, "~> 0.0.4"}]
+  [{:loggix, "~> 0.0.5"}]
 end
 ```
 
@@ -32,6 +36,7 @@ config :logger, :error_log,
   path: "var/log/error_log"
   level: :error
   json_encoder: Poison
+  metadata: [:user_id, :is_auth]
 ```
 
 
@@ -42,6 +47,5 @@ config :logger, :error_log,
 
 ## TODO
 
-- JSON, XML Encode feature
+- ~~JSON, XML Encode feature~~
 - metadata filter
-- check if available inode
