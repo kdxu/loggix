@@ -1,0 +1,12 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/loggix
+    docker:
+      - image: elixir
+    steps:
+      - checkout
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - run: mix deps.get
+      - run: MIX_ENV=test mix test

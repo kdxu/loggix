@@ -62,6 +62,16 @@ defmodule Loggix do
     {:ok, state}
   end
 
+  def code_change(_old, state, _extra) do
+    {:ok, state}
+  end
+
+  def terminate(reason, %{io_device: io_device} = state) do
+    File.close(io_device)
+    IO.puts("Loggix was terminated. reason=#{}", reason)
+    {:ok, state}
+  end
+
   ####################
   # helper functions #
   ####################
