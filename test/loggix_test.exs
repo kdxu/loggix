@@ -26,7 +26,8 @@ defmodule LoggixTest do
   end
 
   test "can configure metadata" do
-    config([format: "$metadata[$level] $message\n", metadata: [:user_id, :is_login]])
+    config([format: "$metadata[$level] $message\n"])
+    config([metadata: [:user_id, :is_login]])
 
     Logger.debug("hello")
     assert log() =~ "hello"
@@ -48,9 +49,9 @@ defmodule LoggixTest do
     config([format: "$message\n"])
     config([rotate: %{max_bytes: 4, keep: 4}])
 
-    Logger.debug "rotate1"
-    Logger.debug "rotate2"
-    Logger.debug "rotate3"
+    Logger.debug("rotate1")
+    Logger.debug("rotate2")
+    Logger.debug("rotate3")
 
 
     p = path()
@@ -61,6 +62,15 @@ defmodule LoggixTest do
 
     config([rotate: nil])
   end
+
+  test "json-encoded log" do
+    config([json_encoder: Poison])
+    Logger.debug("hello")
+    msg = Poison.decode!(log())
+    assert msg["message"] == "hello"
+    config([json_encoder: nil])
+  end
+
   defp path() do
     {:ok, path} = :gen_event.call(Logger, @backend, :path)
     path

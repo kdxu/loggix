@@ -29,6 +29,7 @@ defmodule Loggix.Mixfile do
 
   defp deps do
     [
+      {:poison, "~> 3.1", only: [:test]},
       {:dialyxir, "~> 0.5", only: [:test], runtime: false},
       {:ex_doc, "~> 0.16.2", only: [:dev], runtime: false}
     ]

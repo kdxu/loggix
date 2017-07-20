@@ -37,13 +37,15 @@ config :logger, :error_log,
   level: :error
   json_encoder: Poison
   metadata: [:user_id, :is_auth]
+  rotate: %{max_bytes: 4096, keep: 6}
 ```
 
 
 * path : String - the path for a log file
 * level : Logger.Level - the logging level for backend
 * format : String - the log format
-* metadata : String - the metadata to include
+* metadata : [atom] - the metadata to include
+* rotate: map(max_bytes, is_auth) : configiration of log rotation
 
 ## TODO
 
