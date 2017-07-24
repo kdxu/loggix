@@ -3,8 +3,23 @@ defmodule Loggix do
   @moduledoc"""
   Loggix
   ----
-  A custom implementation for Elixir Logger moduale.
+  A custom implementation for Elixir Logger module.
   - Using GenEvent for handle log events.
+
+
+  ## Configration
+
+  Tell Logger Loggix as backend `config/config.ex`.
+  ```
+  config :logger,
+    backends: [{Loggix, :dev_log}, {Loggix, :json_log}]
+  config :logger, :dev_log,
+    format: "[$level] $metadata $message [$time]\n", # configure format
+    metadata: [:uuid, :is_auth], # configure metadatas
+    rotate: %{max_bytes: 4096, size: 4} # configure log rotation. max_bytes: max byte size of 1 file, size : max count of rotate log file.
+  config :logger, :json_log,
+  json_encoder: Poison # configure json encoder, which has the function `encode!/2`, which returns iodata.
+  ```
 
   ## Format
 
@@ -22,6 +37,49 @@ defmodule Loggix do
   Ex. json_encoder: Poison
   Poison.encode!(%{level: "", message: "", time : ""})...
   if json_encoder option is not existed in config/config.exs, formatting style will follow 'format' configration.
+
+
+  ## Log Rotation
+
+  Logrotate configration which like `erlang.log` can be customized.
+
+  - size
+    + it will specify a log generation size, default is 5.
+  - max_bytes
+    + it will specify max byte of one log.
+
+  ### Example
+
+  For Example, if you specify max_bytes is 1024, size is 4.
+
+  - 0
+  ```
+  `new data` : 2 byte => dev.log : 1024 byte
+  ```
+  - 1
+  ```
+  dev_log =(rename)=> dev_log.1
+
+  then touch dev_log : 0 byte
+  ```
+
+  - 2
+
+  ```
+  `new data : 2 byte` => dev_log : 0 byte
+  dev_log.1 : 1024 byte
+  ```
+
+  - 3
+
+  ```
+  dev_log : 2 byte
+  dev_log.1 : 1024 byte
+  ```
+
+
+
+
   """
 
   @behaviour :gen_event
