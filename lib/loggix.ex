@@ -76,12 +76,7 @@ defmodule Loggix do
   dev_log : 2 byte
   dev_log.1 : 1024 byte
   ```
-
-
-
-
   """
-
   @behaviour :gen_event
 
   #####################
@@ -93,6 +88,7 @@ defmodule Loggix do
   @type format :: String.t
   @type file :: :file.io_device
   @type inode :: File.Stat.t
+  @type json_encoder :: Module.t
 
   @log_default_format "$time $metadata [$level] $message\n"
 
@@ -108,8 +104,8 @@ defmodule Loggix do
     {:ok, {:ok, path}, state}
   end
 
-  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level} = state) do
-    if is_nil(min_level == nil) or Logger.compare_levels(level, min_level) != :lt do
+  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level, metadata_filter: metadata_filter} = state) do
+    if (is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt) and metadata_matches?(metadata, metadata_filter) do
       log_event(level, message, timestamps, metadata, state)
     else
       {:ok, state}
@@ -126,7 +122,7 @@ defmodule Loggix do
 
   def terminate(reason, %{io_device: io_device} = state) do
     File.close(io_device)
-    IO.puts("Loggix was terminated. reason=#{}", reason)
+    IO.puts("Loggix was terminated. reason=#{inspect reason}")
     {:ok, state}
   end
 
@@ -169,34 +165,6 @@ defmodule Loggix do
     end
   end
 
-  @spec get_inode(String.t) :: term | nil
-  defp get_inode(path) do
-    case File.stat(path) do
-      {:ok, %File.Stat{inode: inode}} -> inode
-      {:error, _} -> nil
-    end
-  end
-
-  @spec configure(atom, map()) :: %{}
-  defp configure(name, opts) do
-    state = %{name: nil, path: nil, io_device: nil, inode: nil, level: nil, format: nil, metadata: nil, json_encoder: nil, rotate: nil}
-    configure(name, opts, state)
-  end
-  defp configure(name, opts, state) do
-    env = Application.get_env(:logger, name, [])
-    opts = Keyword.merge(env, opts)
-    Application.put_env(:logger, name, opts)
-
-    level = Keyword.get(opts, :level, :debug)
-    metadata = Keyword.get(opts, :metadata, [])
-    format = Keyword.get(opts, :format, @log_default_format)
-             |> Logger.Formatter.compile()
-    path = Keyword.get(opts, :path, nil)
-    json_encoder = Keyword.get(opts, :json_encoder, nil)
-    rotate = Keyword.get(opts, :rotate, nil)
-
-    %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder, rotate: rotate}
-  end
 
 
   defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys, json_encoder: json_encoder} = state) do
@@ -206,6 +174,7 @@ defmodule Loggix do
         format_json(level, message, timestamps, metadata, state)
       end
   end
+
   defp format_json(level, message, timestamps, metadata, %{metadata: metadata_keys, json_encoder: json_encoder}) do
     metadata_map = reduce_metadata(metadata, metadata_keys)
                    |> Enum.into(%{})
@@ -222,10 +191,10 @@ defmodule Loggix do
 
   defp rename_file(path, keep) do
     File.rm("#{path}.#{keep}")
-    _ = Enum.map(keep-1..1, &(File.rename("#{path}.#{&1}", "#{path}.#{&1+1}")))
+    :ok = Enum.each(keep-1..1, &File.rename("#{path}.#{&1}", "#{path}.#{&1 + 1}"))
     case File.rename(path, "#{path}.1") do
       :ok -> false
-      _ -> true
+      {:error, _} -> true
     end
   end
 
@@ -245,18 +214,59 @@ defmodule Loggix do
   defp rotate(_path, nil), do: true
 
   @spec reduce_metadata([atom], [atom]) :: [{atom, atom}]
-  defp reduce_metadata(metadata, keys) do
-    reduce_metadata_ref(metadata, [], keys)
+  defp reduce_metadata(metadata, keys) when is_list(keys) do
+    Enum.reduce(keys, [], fn key, acc ->
+      case Keyword.fetch(metadata, key) do
+        {:ok, value} ->
+          [{key, value} | acc]
+        :error ->
+          acc
+      end
+    end)
+    |> Enum.reverse()
   end
-  defp reduce_metadata_ref(_metadata, ret, []) do
-    Enum.reverse(ret)
-  end
-  defp reduce_metadata_ref(metadata, ret, [key | keys]) do
-    case Keyword.fetch(metadata, key) do
-      {:ok, value} ->
-        reduce_metadata_ref(metadata, [{key, value} | ret], keys)
-      :error ->
-        reduce_metadata_ref(metadata, ret, keys)
+  defp reduce_metadata(_metadata, _keys), do: []
+
+  @spec metadata_matches?(Keyword.t, Keyword.t | nil) :: boolean
+  defp metadata_matches?(_metadata, nil), do: true
+  defp metadata_matches?(_metadata, []), do: true
+  defp metadata_matches?(metadata,  [{k, v} | rest]) do
+    # check if all keys of metadata_filter exist in metadata
+    case Keyword.fetch(metadata, k) do
+      {:ok, ^v} ->
+        metadata_matches?(metadata, rest)
+      _ ->
+        false
     end
+  end
+
+  @spec get_inode(String.t) :: term | nil
+  defp get_inode(path) do
+    case File.stat(path) do
+      {:ok, %File.Stat{inode: inode}} -> inode
+      {:error, _} -> nil
+    end
+  end
+
+  @spec configure(atom, map()) :: %{}
+  defp configure(name, opts) do
+    state = %{name: nil, path: nil, io_device: nil, inode: nil, level: nil, format: nil, metadata: nil, json_encoder: nil, rotate: nil, metadata_filter: nil}
+    configure(name, opts, state)
+  end
+  defp configure(name, opts, state) do
+    env = Application.get_env(:logger, name, [])
+    opts = Keyword.merge(env, opts)
+    Application.put_env(:logger, name, opts)
+
+    level = Keyword.get(opts, :level, :debug)
+    metadata = Keyword.get(opts, :metadata, [])
+    metadata_filter = Keyword.get(opts, :metadata_filter, nil)
+    format = Keyword.get(opts, :format, @log_default_format)
+             |> Logger.Formatter.compile()
+    path = Keyword.get(opts, :path, nil)
+    json_encoder = Keyword.get(opts, :json_encoder, nil)
+    rotate = Keyword.get(opts, :rotate, nil)
+
+    %{state | name: name, path: path, format: format, level: level, metadata: metadata, json_encoder: json_encoder, rotate: rotate, metadata_filter: metadata_filter}
   end
 end
