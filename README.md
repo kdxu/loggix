@@ -3,6 +3,7 @@
 [![hex.pm version](https://img.shields.io/hexpm/v/loggix.svg)](https://hex.pm/packages/loggix)
 [![hex.pm](https://img.shields.io/hexpm/l/loggix.svg)](https://github.com/kdxu/loggix/blob/master/LICENSE)
 
+[![CircleCI](https://circleci.com/gh/kdxu/loggix/tree/master.svg?style=svg)](https://circleci.com/gh/kdxu/loggix/tree/master)
 
 A Log Implimentation Tool with Logger.
 
@@ -38,6 +39,7 @@ config :logger, :error_log,
   json_encoder: Poison
   metadata: [:user_id, :is_auth]
   rotate: %{max_bytes: 4096, keep: 6}
+  metadata_filter: [:is_app]
 ```
 
 
@@ -45,9 +47,9 @@ config :logger, :error_log,
 * level : Logger.Level - the logging level for backend
 * format : String - the log format
 * metadata : [atom] - the metadata to include
-* rotate: map(max_bytes, is_auth) : configiration of log rotation
-
+* rotate: map(max_bytes, is_auth) : configuration of log rotation
+* `metadata_filter`: configuration of filtering log
 ## TODO
 
 - ~~JSON, XML Encode feature~~
-- metadata filter
+- ~~metadata filter~~
