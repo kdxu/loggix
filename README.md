@@ -34,11 +34,11 @@ For telling logger to configiration of `loggix`.
 config :logger,
   backends: [{Loggix, :error_log}]
 config :logger, :error_log,
-  path: "var/log/error_log"
-  level: :error
-  json_encoder: Poison
-  metadata: [:user_id, :is_auth]
-  rotate: %{max_bytes: 4096, keep: 6}
+  path: "var/log/error_log",
+  level: :error,
+  json_encoder: Poison,
+  metadata: [:user_id, :is_auth],
+  rotate: %{max_bytes: 4096, keep: 6},
   metadata_filter: [:is_app]
 ```
 
