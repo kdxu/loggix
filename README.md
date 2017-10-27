@@ -5,11 +5,15 @@
 
 [![CircleCI](https://circleci.com/gh/kdxu/loggix/tree/master.svg?style=svg)](https://circleci.com/gh/kdxu/loggix/tree/master)
 
-A Log Implimentation Tool with Logger.
+- `Loggix` is a custom Logger Backend with easy configiration.
+
+using `GenEvent`.
 
 ## Concept
 
-- Use `GenEvent`
+- Configiration of log rotation
+- JSON, XML Encode feature
+- Metadata filter
 
 ## Installation
 
@@ -18,17 +22,16 @@ by adding `loggix` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:loggix, "~> 0.0.6"}]
+  [{:loggix, "~> 0.0.7"}]
 end
 ```
-
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/loggix](https://hexdocs.pm/loggix).
 
 ## Configration
 
-For telling logger to configiration of `loggix`.
+To configure `loggix` as app logger backend, set environments into `config/config.exs`.
 
 ```elixir
 config :logger,
@@ -42,14 +45,9 @@ config :logger, :error_log,
   metadata_filter: [:is_app]
 ```
 
-
 * path : String - the path for a log file
 * level : Logger.Level - the logging level for backend
 * format : String - the log format
 * metadata : [atom] - the metadata to include
-* rotate: map(max_bytes, is_auth) : configuration of log rotation
+* rotate: `map(max_bytes, is_auth)` : configuration of log rotation
 * `metadata_filter`: configuration of filtering log
-## TODO
-
-- ~~JSON, XML Encode feature~~
-- ~~metadata filter~~
