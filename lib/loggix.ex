@@ -207,10 +207,10 @@ defmodule Loggix do
 
   defp format_time({date, time}) do
     fmt_date =
-      Logger.Utils.format_date(date)
+      format_date(date)
       |> IO.iodata_to_binary()
     fmt_time =
-      Logger.Utils.format_time(time)
+      format_time(time)
       |> IO.iodata_to_binary()
     "#{fmt_date} #{fmt_time}"
   end
@@ -337,4 +337,19 @@ defmodule Loggix do
   defp prune_binary(<<>>, acc) do
     acc
   end
+
+  defp format_time({hh, mi, ss, ms}) do
+    [pad2(hh), ?:, pad2(mi), ?:, pad2(ss), ?., pad3(ms)]
+  end
+
+  defp format_date({yy, mm, dd}) do
+    [Integer.to_string(yy), ?-, pad2(mm), ?-, pad2(dd)]
+  end
+
+  defp pad3(int) when int < 100 and int > 10, do: [?0, Integer.to_string(int)]
+  defp pad3(int) when int < 10, do: [?0, ?0, Integer.to_string(int)]
+  defp pad3(int), do: Integer.to_string(int)
+
+  defp pad2(int) when int < 10, do: [?0, Integer.to_string(int)]
+  defp pad2(int), do: Integer.to_string(int)
 end
