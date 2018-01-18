@@ -200,12 +200,12 @@ defmodule Loggix do
     json_encoder.encode!(Map.merge(%{
       level: level,
       message: IO.iodata_to_binary(message),
-      time: format_time(timestamps),
+      time: format_date_time(timestamps),
     }, metadata_map)) <>
       "\n"
   end
 
-  defp format_time({date, time}) do
+  defp format_date_time({date, time}) do
     fmt_date =
       format_date(date)
       |> IO.iodata_to_binary()

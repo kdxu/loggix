@@ -4,7 +4,7 @@ defmodule Loggix.Mixfile do
   def project() do
     [
       app: :loggix,
-      version: "0.0.7",
+      version: "0.0.8",
       elixir: "~> 1.5",
       dialyzer: [ignore_warnings: ".dialyzerignore"],
       package: package(),
@@ -31,9 +31,9 @@ defmodule Loggix.Mixfile do
 
   defp deps() do
     [
-      {:poison, "~> 3.1", only: [:test]},
-      {:dialyxir, "~> 0.5", only: [:test], runtime: false},
-      {:ex_doc, "~> 0.16.2", only: [:dev], runtime: false},
+      {:poison, "~> 3.1.0", only: [:test]},
+      {:dialyxir, "~> 0.5.1", only: [:test], runtime: false},
+      {:ex_doc, "~> 0.18.1", only: [:dev], runtime: false},
     ]
   end
 end
