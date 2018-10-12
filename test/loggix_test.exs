@@ -100,12 +100,30 @@ defmodule LoggixTest do
     config(rotate: nil)
   end
 
-  test "custom encoded log" do
+  test "custom encoded log with JSON (Poison)" do
     config(encoder: {Poison, :encode!}, metadata: [:user_id])
     Logger.debug("hello", user_id: "xxx=xxxx")
     msg = Poison.decode!(log())
     assert msg["message"] == "hello"
     assert msg["user_id"] == "xxx=xxxx"
+    config(encoder: nil)
+    config(metadata: [])
+  end
+
+  test "custom encoded log with structured format (Logfmt)" do
+    config(encoder: {Logfmt, :encode}, metadata: [:user_id])
+
+    Logger.debug("hello", user_id: "xxx=xxxx")
+
+    assert %{
+             "level" => "debug",
+             "message" => "hello",
+             "timestamp" => _,
+             "user_id" => "xxx=xxxx"
+           } = Logfmt.decode(log())
+
+    IO.puts(log())
+
     config(encoder: nil)
     config(metadata: [])
   end

@@ -9,7 +9,7 @@ defmodule Loggix.Mixfile do
       dialyzer: [ignore_warnings: ".dialyzerignore"],
       package: package(),
       description: description(),
-      deps: deps(),
+      deps: deps()
     ]
   end
 
@@ -21,7 +21,7 @@ defmodule Loggix.Mixfile do
     [
       maintainers: ["kdxu"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/kdxu/loggix"},
+      links: %{"GitHub" => "https://github.com/kdxu/loggix"}
     ]
   end
 
@@ -32,8 +32,9 @@ defmodule Loggix.Mixfile do
   defp deps() do
     [
       {:poison, "~> 3.1.0", only: [:test]},
+      {:logfmt, "~> 3.3", only: [:test]},
       {:dialyxir, "~> 0.5.1", only: [:test], runtime: false},
-      {:ex_doc, "~> 0.18.1", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.18.1", only: [:dev], runtime: false}
     ]
   end
 end
