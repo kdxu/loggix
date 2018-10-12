@@ -5,15 +5,16 @@
 
 [![CircleCI](https://circleci.com/gh/kdxu/loggix/tree/master.svg?style=svg)](https://circleci.com/gh/kdxu/loggix/tree/master)
 
-- `Loggix` is a custom Logger Backend with easy configiration.
+* `Loggix` is a custom Logger Backend with easy configuration.
 
 using `GenEvent`.
 
 ## Concept
 
-- Configiration of log rotation
-- JSON, XML Encode feature
-- Metadata filter
+* Configuration of log rotation
+* JSON, Logfmt or whatever module implements an encoding function which accepts a `Map` as
+  input
+* Metadata filter
 
 ## Installation
 
@@ -22,9 +23,10 @@ by adding `loggix` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:loggix, "~> 0.0.7"}]
+  [{:loggix, "~> 0.0.8"}]
 end
 ```
+
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at [https://hexdocs.pm/loggix](https://hexdocs.pm/loggix).
@@ -39,7 +41,7 @@ config :logger,
 config :logger, :error_log,
   path: "var/log/error_log",
   level: :error,
-  json_encoder: Poison,
+  encoder: {Poison, :encode!},
   metadata: [:user_id, :is_auth],
   rotate: %{max_bytes: 4096, keep: 6},
   metadata_filter: [:is_app]
