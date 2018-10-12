@@ -1,12 +1,11 @@
 defmodule Loggix do
-
   @moduledoc """
   Loggix
   ----
   A custom implementation for Elixir Logger module.
   - Using GenEvent for handle log events.
 
-  ## Configration
+  ## configuration
 
   Tell Logger Loggix as backend `config/config.ex`.
   ```
@@ -17,7 +16,7 @@ defmodule Loggix do
     metadata: [:uuid, :is_auth], # configure metadatas
     rotate: %{max_bytes: 4096, size: 4} # configure log rotation. max_bytes: max byte size of 1 file, size : max count of rotate log file.
   config :logger, :json_log,
-  json_encoder: Poison # configure json encoder, which has the function `encode!/2`, which returns iodata.
+  encoder: {Poison, :encode!} # a tuple `{module, function_atom}` which accepts a `Map` and returns iodata.
   ```
 
   ## Format
@@ -29,19 +28,19 @@ defmodule Loggix do
   "
   ```
 
-  You can configure a custom formatting style `format : "..."` in config/config.exs.
+  You can configure a custom formatting style `format : "..."` in `config/config.exs`.
 
-  ## JSON Encoding
+  ## Custom Encoding
 
-  if json_encoder will specified in configration. json_encoder.encode!/1 will executed.
-  Ex. json_encoder: Poison
+  if `encoder` will specified in configuration, its function will executed.
+  Ex. encoder: {Poison, :encode!}
   Poison.encode!(%{level: "", message: "", time : ""})...
-  if json_encoder option is not existed in config/config.exs, formatting style will follow 'format' configration.
+  if encoder option does not exists in `config/config.exs`, formatting style will follow 'format' configuration.
 
 
   ## Log Rotation
 
-  Logrotate configration which like `erlang.log` can be customized.
+  Logrotate configuration which like `erlang.log` can be customized.
 
   - size
     + it will specify a log generation size, default is 5.
@@ -82,13 +81,13 @@ defmodule Loggix do
   #####################
   # type annotations. #
   #####################
-  @type path :: String.t
-  @type level :: Logger.level
+  @type path :: String.t()
+  @type level :: Logger.level()
   @type metadata :: [atom]
-  @type format :: String.t
-  @type file :: :file.io_device
-  @type inode :: File.Stat.t
-  @type json_encoder :: Module.t
+  @type format :: String.t()
+  @type file :: :file.io_device()
+  @type inode :: File.Stat.t()
+  @type encoder :: {Module.t(), :atom}
 
   @log_default_format "$time $metadata [$level] $message\n"
 
@@ -104,10 +103,12 @@ defmodule Loggix do
     {:ok, {:ok, path}, state}
   end
 
-  def handle_event({level, _gl, {Logger, message, timestamps, metadata}}, %{level: min_level, metadata_filter: metadata_filter} = state) do
-    if (is_nil(min_level) or
-      Logger.compare_levels(level, min_level) != :lt) and
-      metadata_matches?(metadata, metadata_filter) do
+  def handle_event(
+        {level, _gl, {Logger, message, timestamps, metadata}},
+        %{level: min_level, metadata_filter: metadata_filter} = state
+      ) do
+    if (is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt) and
+         metadata_matches?(metadata, metadata_filter) do
       log_event(level, message, timestamps, metadata, state)
     else
       {:ok, state}
@@ -138,17 +139,33 @@ defmodule Loggix do
   defp log_event(_level, _message, _timestamps, _metadata, %{path: nil} = state) do
     {:ok, state}
   end
-  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: nil} = state) when is_binary(path) do
+
+  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: nil} = state)
+       when is_binary(path) do
     case open_log(path) do
       {:ok, io_device, inode} ->
-        log_event(level, message, timestamps, metadata, %{state | io_device: io_device, inode: inode})
+        log_event(level, message, timestamps, metadata, %{
+          state
+          | io_device: io_device,
+            inode: inode
+        })
+
       _ ->
         {:ok, state}
     end
   end
-  defp log_event(level, message, timestamps, metadata, %{path: path, io_device: io_device, inode: inode, rotate: rotate} = state) when is_binary(path) do
+
+  defp log_event(
+         level,
+         message,
+         timestamps,
+         metadata,
+         %{path: path, io_device: io_device, inode: inode, rotate: rotate} = state
+       )
+       when is_binary(path) do
     if !is_nil(inode) and inode == get_inode(path) and rotate(path, rotate) do
       output = format(level, message, timestamps, metadata, state)
+
       try do
         IO.write(io_device, output)
         {:ok, state}
@@ -158,6 +175,7 @@ defmodule Loggix do
             {:ok, io_device, inode} ->
               IO.write(io_device, prune(output))
               {:ok, %{state | io_device: io_device, inode: inode}}
+
             _other ->
               {:ok, %{state | io_device: nil, inode: nil}}
           end
@@ -173,61 +191,85 @@ defmodule Loggix do
       path
       |> Path.dirname()
       |> File.mkdir_p()
+
     case open_dir do
       :ok ->
         case File.open(path, [:append, :utf8]) do
           {:ok, io_device} ->
             {:ok, io_device, get_inode(path)}
+
           other ->
             other
         end
+
       other ->
         other
     end
   end
 
-  defp format(level, message, timestamps, metadata, %{format: format, metadata: metadata_keys, json_encoder: json_encoder}) when is_nil(json_encoder) do
-    Logger.Formatter.format(format, level, message, timestamps, reduce_metadata(metadata, metadata_keys))
-  end
-  defp format(level, message, timestamps, metadata, state) do
-    format_json(level, message, timestamps, metadata, state)
+  defp format(level, message, timestamps, metadata, %{
+         format: format,
+         metadata: metadata_keys,
+         encoder: nil
+       }) do
+    Logger.Formatter.format(
+      format,
+      level,
+      message,
+      timestamps,
+      reduce_metadata(metadata, metadata_keys)
+    )
   end
 
-  defp format_json(level, message, timestamps, metadata, %{metadata: metadata_keys, json_encoder: json_encoder}) do
-    metadata_map =
-      reduce_metadata(metadata, metadata_keys)
-      |> Enum.into(%{})
-    json_encoder.encode!(Map.merge(%{
-      level: level,
-      message: IO.iodata_to_binary(message),
-      time: format_date_time(timestamps),
-    }, metadata_map)) <>
-      "\n"
+  defp format(level, message, timestamps, metadata, state) do
+    do_format(level, message, timestamps, metadata, state)
+  end
+
+  defp do_format(level, message, timestamps, metadata, %{
+         metadata: metadata_keys,
+         encoder: {encoder, func}
+       }) do
+    metadata_map = reduce_metadata(metadata, metadata_keys) |> Enum.into(%{})
+
+    log_data =
+      %{
+        level: level,
+        message: IO.iodata_to_binary(message),
+        timestamp: format_date_time(timestamps)
+      }
+      |> Map.merge(metadata_map)
+
+    apply(encoder, func, [log_data]) <> "\n"
   end
 
   defp format_date_time({date, time}) do
     fmt_date =
       format_date(date)
       |> IO.iodata_to_binary()
+
     fmt_time =
       format_time(time)
       |> IO.iodata_to_binary()
+
     "#{fmt_date} #{fmt_time}"
   end
 
   defp rename_file(path, keep) do
     File.rm("#{path}.#{keep}")
-    :ok = Enum.each(keep - 1..1, &File.rename("#{path}.#{&1}", "#{path}.#{&1 + 1}"))
+    :ok = Enum.each((keep - 1)..1, &File.rename("#{path}.#{&1}", "#{path}.#{&1 + 1}"))
+
     case File.rename(path, "#{path}.1") do
       :ok ->
         false
+
       {:error, _} ->
         true
     end
   end
 
   # for log rotate.
-  defp rotate(path, %{max_bytes: max_bytes, keep: keep}) when is_integer(max_bytes) and is_integer(keep) and keep > 0 do
+  defp rotate(path, %{max_bytes: max_bytes, keep: keep})
+       when is_integer(max_bytes) and is_integer(keep) and keep > 0 do
     case File.stat(path) do
       {:ok, %{size: size}} ->
         if size >= max_bytes do
@@ -235,44 +277,51 @@ defmodule Loggix do
         else
           true
         end
+
       _ ->
         true
     end
   end
+
   defp rotate(_path, nil), do: true
 
   @spec reduce_metadata([atom], [atom]) :: [{atom, atom}]
   defp reduce_metadata(metadata, keys) when is_list(keys) do
     Enum.reduce(keys, [], fn key, acc ->
-      (case Keyword.fetch(metadata, key) do
+      case Keyword.fetch(metadata, key) do
         {:ok, value} ->
           [{key, value} | acc]
+
         :error ->
           acc
-      end)
+      end
     end)
     |> Enum.reverse()
   end
+
   defp reduce_metadata(_metadata, _keys), do: []
 
-  @spec metadata_matches?(Keyword.t, Keyword.t | nil) :: boolean
+  @spec metadata_matches?(Keyword.t(), Keyword.t() | nil) :: boolean
   defp metadata_matches?(_metadata, nil), do: true
   defp metadata_matches?(_metadata, []), do: true
+
   defp metadata_matches?(metadata, [{k, v} | rest]) do
     # check if all keys of metadata_filter exist in metadata
     case Keyword.fetch(metadata, k) do
       {:ok, ^v} ->
         metadata_matches?(metadata, rest)
+
       _ ->
         false
     end
   end
 
-  @spec get_inode(String.t) :: term | nil
+  @spec get_inode(String.t()) :: term | nil
   defp get_inode(path) do
     case File.stat(path) do
       {:ok, %File.Stat{inode: inode}} ->
         inode
+
       {:error, _} ->
         nil
     end
@@ -288,12 +337,14 @@ defmodule Loggix do
       level: nil,
       format: nil,
       metadata: nil,
-      json_encoder: nil,
+      encoder: nil,
       rotate: nil,
-      metadata_filter: nil,
+      metadata_filter: nil
     }
+
     configure(name, opts, state)
   end
+
   defp configure(name, opts, state) do
     env = Application.get_env(:logger, name, [])
     opts = Keyword.merge(env, opts)
@@ -302,22 +353,25 @@ defmodule Loggix do
     level = Keyword.get(opts, :level, :debug)
     metadata = Keyword.get(opts, :metadata, [])
     metadata_filter = Keyword.get(opts, :metadata_filter, nil)
+
     format =
       Keyword.get(opts, :format, @log_default_format)
       |> Logger.Formatter.compile()
+
     path = Keyword.get(opts, :path, nil)
-    json_encoder = Keyword.get(opts, :json_encoder, nil)
+    encoder = Keyword.get(opts, :encoder, nil)
     rotate = Keyword.get(opts, :rotate, nil)
 
-    %{state |
-      name: name,
-      path: path,
-      format: format,
-      level: level,
-      metadata: metadata,
-      json_encoder: json_encoder,
-      rotate: rotate,
-      metadata_filter: metadata_filter,
+    %{
+      state
+      | name: name,
+        path: path,
+        format: format,
+        level: level,
+        metadata: metadata,
+        encoder: encoder,
+        rotate: rotate,
+        metadata_filter: metadata_filter
     }
   end
 
@@ -331,9 +385,11 @@ defmodule Loggix do
   defp prune_binary(<<h::utf8, t::binary>>, acc) do
     prune_binary(t, <<acc::binary, h::utf8>>)
   end
+
   defp prune_binary(<<_, t::binary>>, acc) do
     prune_binary(t, <<acc::binary, @replacement>>)
   end
+
   defp prune_binary(<<>>, acc) do
     acc
   end
