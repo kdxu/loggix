@@ -4,7 +4,7 @@ defmodule Loggix.Mixfile do
   def project() do
     [
       app: :loggix,
-      version: "0.0.8",
+      version: "0.0.9",
       elixir: "~> 1.5",
       dialyzer: [ignore_warnings: ".dialyzerignore"],
       package: package(),
