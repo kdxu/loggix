@@ -1,5 +1,7 @@
 # Loggix
 
+** this repository has been archived **
+
 [![hex.pm version](https://img.shields.io/hexpm/v/loggix.svg)](https://hex.pm/packages/loggix)
 [![hex.pm](https://img.shields.io/hexpm/l/loggix.svg)](https://github.com/kdxu/loggix/blob/master/LICENSE)
 
